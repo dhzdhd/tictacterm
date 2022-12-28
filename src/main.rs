@@ -7,7 +7,7 @@ use std::io;
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Rect},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     widgets::{Block, BorderType, Borders, Paragraph},
     Frame, Terminal,
 };
@@ -48,7 +48,7 @@ impl State {
         self.result = GameRes::Neutral;
     }
 
-    fn check_result(&mut self) -> GameRes {
+    fn check_result(&self) -> GameRes {
         let get_choice_from_char = |chr| {
             if chr == 'x' {
                 Choice::X
@@ -57,6 +57,7 @@ impl State {
             }
         };
 
+        // * Find a better way to do this 🗿
         if self.arr[0] == self.arr[1] && self.arr[1] == self.arr[2] {
             GameRes::Win(get_choice_from_char(self.arr[0]))
         } else if self.arr[3] == self.arr[4] && self.arr[4] == self.arr[5] {
@@ -77,11 +78,11 @@ impl State {
             return;
         }
 
-        match self.check_result() {
-            GameRes::Draw => self.reset(),
-            GameRes::Win(x) => self.reset(),
-            _ => (),
-        }
+        // match self.check_result() {
+        //     GameRes::Draw => self.reset(),
+        //     GameRes::Win(x) => self.reset(),
+        //     _ => (),
+        // }
 
         self.count += 1;
         self.choice = if self.choice == Choice::X {
@@ -149,8 +150,8 @@ fn ui<B: Backend>(frame: &mut Frame<B>, state: &mut State) {
         .title("TicTacToe | Starting with X")
         .title_alignment(Alignment::Center)
         .border_type(BorderType::Thick)
-        .border_style(Style::default().fg(Color::Black))
-        .style(Style::default().bg(Color::Blue));
+        .border_style(Style::default().fg(Color::Cyan));
+    // .style(Style::default().bg(Color::Blue));
     frame.render_widget(block, size);
 
     let get_size = |i: u16| {
@@ -171,10 +172,14 @@ fn ui<B: Backend>(frame: &mut Frame<B>, state: &mut State) {
         .iter()
         .enumerate()
         .map(|(index, e)| {
-            let block = Paragraph::new(e.to_string())
-                .style(Style::default().bg(Color::Red))
+            let para = Paragraph::new(e.to_string())
+                .style(
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .alignment(Alignment::Center);
-            frame.render_widget(block, get_size(index as u16));
+            frame.render_widget(para, get_size(index as u16));
         })
         .collect::<()>();
 
