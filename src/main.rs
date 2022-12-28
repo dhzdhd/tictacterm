@@ -1,71 +1,68 @@
-use cursive::{self, views::{Dialog, LinearLayout, Button, PaddedView, NamedView}, Cursive, view::{Nameable}};
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use std::{io, thread, time::Duration};
+use tui::{
+    backend::{Backend, CrosstermBackend},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    widgets::{Block, BorderType, Borders, Widget},
+    Frame, Terminal,
+};
 
-struct Row(String, String, String);
-
-fn main() {
-    let mut siv = cursive::default();
-
-    siv.add_global_callback('q', |s| s.quit());
-
-    siv.add_layer(Dialog::text("Welcome to terminal TicTacToe")
-        .title("TicTacToe")
-        .button("Play", game_view)
-        .button("Quit", |s| s.quit()));
-
-    siv.run();
+struct TicTacToeVec<'a> {
+    vector: Vec<&'a str>,
 }
 
-fn game_view(s: &mut Cursive) {
-    let mut ttt_vec = [""].repeat(9);
+fn main() -> Result<(), io::Error> {
+    // Setup
+    enable_raw_mode()?;
 
-    s.pop_layer();
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
 
-    let mut body = LinearLayout::vertical();
-    for i in 0..3 {
-        let mut hort_layout = LinearLayout::horizontal();
-        body.add_child(hort_layout);
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
 
-        for j in 0..3 {
-            // FIXME: :)))))))))))
-            hort_layout.add_child(button(ttt_vec, format!("{}", i * j).as_str()))
+    // App
+    run_app(&mut terminal)?;
+
+    // Restore
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+
+    terminal.show_cursor()?;
+
+    Ok(())
+}
+
+fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
+    loop {
+        terminal.draw(ui)?;
+
+        if let Event::Key(key) = event::read()? {
+            if let KeyCode::Char('q') = key.code {
+                return Ok(());
+            }
         }
     }
-
-    s.add_layer(
-        PaddedView::lrtb(
-            10,
-            10,
-            5,
-            5,
-            LinearLayout::vertical()
-                .child(LinearLayout::horizontal()
-
-                    .child(Button::new(" ", |s| s.call_on_name("1", |button: &mut Button| button.set_label("X")).unwrap()).with_name("1"))
-                    .child(Button::new(" ", |s| ()))
-                    .child(Button::new(" ", |s| ()))
-                )
-                .child(LinearLayout::horizontal()
-                    .child(Button::new(" ", |s| ()))
-                    .child(Button::new(" ", |s| ()))
-                    .child(Button::new(" ", |s| ()))
-                )
-                .child(LinearLayout::horizontal()
-                    .child(Button::new(" ", |s| ()))
-
-                )
-        )
-    );
 }
 
-fn button(vec: Vec<&'static str>, label: &'static str) -> NamedView<Button> {
-    return Button::new(" ", |s: &mut Cursive| {
-        s.call_on_name(label, |button: &mut Button| { //FIXME:
-            button.set_label(
-                match vec.into_iter().filter(|e| *e != "").count() % 2 == 0 {
-                    true => "x",
-                    false => "o"
-                }
-            );
-        }).unwrap()
-    }).with_name(label);
+fn ui<B: Backend>(frame: &mut Frame<B>) {
+    let size = frame.size();
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("TicTacToe")
+        .title_alignment(Alignment::Center)
+        .border_type(BorderType::Thick)
+        .border_style(Style::default().bg(Color::Blue).fg(Color::Cyan))
+        .style(Style::default().bg(Color::Red));
+    frame.render_widget(block, size);
 }
