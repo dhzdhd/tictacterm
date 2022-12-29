@@ -12,12 +12,13 @@ use tui::{
     Frame, Terminal,
 };
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 enum Choice {
     X,
     O,
 }
 
+#[derive(PartialEq, Eq)]
 enum GameRes {
     Win(Choice),
     Draw,
@@ -25,9 +26,10 @@ enum GameRes {
 }
 
 struct State {
-    count: u32,
+    count: u8,
+    index: u8,
     choice: Choice,
-    arr: Vec<char>,
+    arr: [char; 9],
     result: GameRes,
 }
 
@@ -35,8 +37,9 @@ impl State {
     fn new() -> Self {
         Self {
             count: 0,
+            index: 0,
             choice: Choice::X,
-            arr: Vec::from([' '; 9]),
+            arr: [' '; 9],
             result: GameRes::Neutral,
         }
     }
@@ -44,7 +47,7 @@ impl State {
     fn reset(&mut self) {
         self.count = 0;
         self.choice = Choice::X;
-        self.arr = Vec::from([' '; 9]);
+        self.arr = [' '; 9];
         self.result = GameRes::Neutral;
     }
 
@@ -57,13 +60,26 @@ impl State {
             }
         };
 
+        let get_char_from_choice = |choice| match choice {
+            Choice::O => 'O',
+            Choice::X => 'X',
+        };
+
+        let chr = get_char_from_choice(self.choice);
+
         // * Find a better way to do this 🗿
-        if self.arr[0] == self.arr[1] && self.arr[1] == self.arr[2] {
-            GameRes::Win(get_choice_from_char(self.arr[0]))
-        } else if self.arr[3] == self.arr[4] && self.arr[4] == self.arr[5] {
-            GameRes::Win(get_choice_from_char(self.arr[3]))
-        } else if self.arr[6] == self.arr[7] && self.arr[7] == self.arr[8] {
-            GameRes::Win(get_choice_from_char(self.arr[6]))
+        for i in 0..3 {}
+
+        if (self.arr[0] == chr && self.arr[0] == self.arr[1] && self.arr[1] == self.arr[2])
+            || (self.arr[3] == chr && self.arr[3] == self.arr[4] && self.arr[4] == self.arr[5])
+            || (self.arr[6] == chr && self.arr[6] == self.arr[7] && self.arr[7] == self.arr[8])
+            || (self.arr[0] == chr && self.arr[0] == self.arr[3] && self.arr[3] == self.arr[6])
+            || (self.arr[1] == chr && self.arr[1] == self.arr[4] && self.arr[4] == self.arr[7])
+            || (self.arr[2] == chr && self.arr[2] == self.arr[5] && self.arr[5] == self.arr[8])
+            || (self.arr[0] == chr && self.arr[0] == self.arr[4] && self.arr[4] == self.arr[8])
+            || (self.arr[2] == chr && self.arr[2] == self.arr[4] && self.arr[4] == self.arr[6])
+        {
+            GameRes::Win(get_choice_from_char(chr))
         } else {
             if self.count == 9 {
                 GameRes::Draw
@@ -76,13 +92,7 @@ impl State {
     fn turn(&mut self, index: u32) {
         if self.arr[(index - 1) as usize] != ' ' {
             return;
-        }
-
-        // match self.check_result() {
-        //     GameRes::Draw => self.reset(),
-        //     GameRes::Win(x) => self.reset(),
-        //     _ => (),
-        // }
+        };
 
         self.count += 1;
         self.choice = if self.choice == Choice::X {
@@ -94,6 +104,8 @@ impl State {
             Choice::X => 'X',
             Choice::O => 'O',
         };
+
+        self.result = self.check_result();
     }
 }
 
@@ -131,7 +143,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, state: &mut State) -> io::Res
         if let Event::Key(key) = event::read()? {
             match key.code {
                 KeyCode::Char('q') => return Ok(()),
-                KeyCode::Char(i) if i >= '1' && i <= '9' => state.turn(i.to_digit(10).unwrap()),
+                KeyCode::Char(i) if i >= '1' && i <= '9' && state.result == GameRes::Neutral => {
+                    state.turn(i.to_digit(10).unwrap())
+                }
+                KeyCode::Enter if state.result != GameRes::Neutral => state.reset(),
                 _ => continue,
             }
         }
@@ -140,8 +155,6 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, state: &mut State) -> io::Res
 
 fn ui<B: Backend>(frame: &mut Frame<B>, state: &mut State) {
     let size = frame.size();
-
-    // println!("{:?}", size);
 
     // ! Add win/lose modal
 
@@ -167,21 +180,57 @@ fn ui<B: Backend>(frame: &mut Frame<B>, state: &mut State) {
         )
     };
 
-    let _ = state
-        .arr
-        .iter()
-        .enumerate()
-        .map(|(index, e)| {
-            let para = Paragraph::new(e.to_string())
-                .style(
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                )
-                .alignment(Alignment::Center);
-            frame.render_widget(para, get_size(index as u16));
-        })
-        .collect::<()>();
+    let popup_block = |content| {
+        Paragraph::new(content)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title_alignment(Alignment::Center)
+                    .title("Result")
+                    .style(Style::default().fg(Color::Cyan)),
+            )
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(Color::Cyan))
+    };
+    let popup_area = Rect {
+        x: size.width / 2 - (3 * size.width / 18),
+        y: size.height / 2 - size.height / 9,
+        width: size.width / 3,
+        height: 5,
+    };
+    match state.result {
+        GameRes::Win(c) => frame.render_widget(
+            popup_block(format!(
+                "{} Wins!\nPress Enter to reset.",
+                match c {
+                    Choice::X => "X",
+                    Choice::O => "O",
+                }
+            )),
+            popup_area,
+        ),
+        GameRes::Draw => frame.render_widget(
+            popup_block("Draw!\nPress Enter to reset.".to_string()),
+            popup_area,
+        ),
+        GameRes::Neutral => {
+            let _ = state
+                .arr
+                .iter()
+                .enumerate()
+                .map(|(index, e)| {
+                    let para = Paragraph::new(e.to_string())
+                        .style(
+                            Style::default()
+                                .fg(Color::Green)
+                                .add_modifier(Modifier::BOLD),
+                        )
+                        .alignment(Alignment::Center);
+                    frame.render_widget(para, get_size(index as u16));
+                })
+                .collect::<()>();
+        }
+    }
 
     ()
 }
