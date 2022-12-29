@@ -27,7 +27,6 @@ enum GameRes {
 
 struct State {
     count: u8,
-    index: u8,
     choice: Choice,
     arr: [char; 9],
     result: GameRes,
@@ -37,7 +36,6 @@ impl State {
     fn new() -> Self {
         Self {
             count: 0,
-            index: 0,
             choice: Choice::X,
             arr: [' '; 9],
             result: GameRes::Neutral,
@@ -66,9 +64,6 @@ impl State {
         };
 
         let chr = get_char_from_choice(self.choice);
-
-        // * Find a better way to do this 🗿
-        for i in 0..3 {}
 
         if (self.arr[0] == chr && self.arr[0] == self.arr[1] && self.arr[1] == self.arr[2])
             || (self.arr[3] == chr && self.arr[3] == self.arr[4] && self.arr[4] == self.arr[5])
@@ -155,8 +150,6 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, state: &mut State) -> io::Res
 
 fn ui<B: Backend>(frame: &mut Frame<B>, state: &mut State) {
     let size = frame.size();
-
-    // ! Add win/lose modal
 
     let block = Block::default()
         .borders(Borders::ALL)
